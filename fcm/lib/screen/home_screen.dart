@@ -27,7 +27,7 @@ const AndroidNotificationChannel channel = AndroidNotificationChannel(
   importance: Importance.max, // push 알림 수신할 경우 상단에 카톡처럼 알림 카드가 내려옴
 );
 
-// terminated 상태에서 상단 push 알림 클릭시 이벤트
+// 앱이 꺼진 상태(terminated)에서 push 알림 수신하여 상단 Notification 클릭하여 앱을 실행했을때 이벤트
 checkMessage(BuildContext context) async {
   RemoteMessage? message = await FirebaseMessaging.instance.getInitialMessage();
   if (message != null) {
@@ -128,7 +128,8 @@ class HomeScreen extends StatelessWidget {
       InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
-      // 포그라운드 상태에서 상단 알림 클릭시 이벤트
+
+      // 포그라운드 상태에서 상단 Notification 클릭시 이벤트
       onDidReceiveNotificationResponse: (details) {
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => PushListScreen()),
@@ -136,7 +137,7 @@ class HomeScreen extends StatelessWidget {
       },
     );
 
-    // foreground Listener 설정
+    // 포그라운드 상태에서 push 메시지 수신시 Listener 설정 => 상단에 Notification 팝업되도록 설정
     FirebaseMessaging.onMessage.listen((event) {
       RemoteNotification? notification = event.notification;
       AndroidNotification? androidNoti = event.notification?.android;
@@ -157,7 +158,9 @@ class HomeScreen extends StatelessWidget {
       }
     });
 
-    // background Listener 설정
+    // 백그라운드 상태에서는 별도의 설정 없이도, push 메시지 수신시 상단에 Notification이 팝업된다.
+
+    // 백그라운드 상태에서 상단 Notification 클릭시 이벤트
     FirebaseMessaging.onMessageOpenedApp.listen((event) {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => PushListScreen(),
