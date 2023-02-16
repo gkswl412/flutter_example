@@ -2,6 +2,45 @@ import 'package:flutter/material.dart';
 
 import '../const/colors.dart';
 
+class _SliverFixedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double maxHeight;
+  final double minHeight;
+
+  _SliverFixedHeaderDelegate({
+    required this.child,
+    required this.maxHeight,
+    required this.minHeight,
+  });
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(
+      child: child,
+    );
+  }
+
+  @override
+  // 최대 높이
+  double get maxExtent => maxHeight;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  // covariant - 상속된 클래스도 사용가능
+  // oldDelegate - build가 실행이 됐을때 이전 Delegate
+  // this - 새로운 delegate
+  // shouldRebuild - 새로 build를 해야할지 말지 결정
+  // false - build 안함, true - 빌드 다시 함
+  bool shouldRebuild(_SliverFixedHeaderDelegate oldDelegate) {
+    return oldDelegate.minHeight != minHeight ||
+        oldDelegate.maxHeight != maxHeight ||
+        oldDelegate.child != child;
+  }
+}
+
 class CustomScrollViewScreen extends StatelessWidget {
   final List<int> numbers = List.generate(100, (index) => index);
   CustomScrollViewScreen({Key? key}) : super(key: key);
@@ -12,11 +51,36 @@ class CustomScrollViewScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           renderSliverAppbar(),
+          renderHeader(),
           renderChildSliverList(),
+          renderHeader(),
           renderBuilderSliverList(),
+          renderHeader(),
           renderChildSliverGrid(),
+          renderHeader(),
           renderBuilderSliverGrid(),
         ],
+      ),
+    );
+  }
+
+  SliverPersistentHeader renderHeader() {
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _SliverFixedHeaderDelegate(
+        child: Container(
+          color: Colors.black,
+          child: Center(
+            child: Text(
+              '신기하지~',
+              style: TextStyle(
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        maxHeight: 150,
+        minHeight: 75,
       ),
     );
   }
@@ -94,7 +158,7 @@ class CustomScrollViewScreen extends StatelessWidget {
   SliverGrid renderBuilderSliverGrid() {
     return SliverGrid(
       delegate: SliverChildBuilderDelegate(
-            (context, index) {
+        (context, index) {
           return renderContainer(
             color: colors[index % colors.length],
             index: index,

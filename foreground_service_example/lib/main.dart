@@ -232,8 +232,10 @@ class _MyAppState extends State<MyApp> {
                 var isRunning = await service.isRunning();
                 if (isRunning) {
                   service.invoke("stopService");
+                  saveTouchInfo('stop');
                 } else {
                   service.startService();
+                  saveTouchInfo('start');
                 }
 
                 if (!isRunning) {
@@ -256,6 +258,15 @@ class _MyAppState extends State<MyApp> {
       ),
     );
   }
+
+  saveTouchInfo(String job) async {
+    final SharedPreferences sp = await SharedPreferences.getInstance();
+    await sp.reload();
+    int cnt = sp.getInt('$job touch count') ?? 0;
+    cnt++;
+    await sp.setInt('$job touch count', cnt);
+  }
+
 }
 
 class LogView extends StatefulWidget {
@@ -268,14 +279,18 @@ class LogView extends StatefulWidget {
 class _LogViewState extends State<LogView> {
   late final Timer timer;
   List<String> logs = [];
+  int startTouchCnt = 0;
+  int stopTouchCnt = 0;
 
   @override
   void initState() {
     super.initState();
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+    timer = Timer.periodic(const Duration(seconds: 5), (timer) async {
       final SharedPreferences sp = await SharedPreferences.getInstance();
       await sp.reload();
       logs = sp.getStringList('log') ?? [];
+      startTouchCnt = sp.getInt('start touch count') ?? 0;
+      stopTouchCnt = sp.getInt('stop touch count') ?? 0;
       if (mounted) {
         setState(() {});
       }
@@ -290,11 +305,21 @@ class _LogViewState extends State<LogView> {
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('$startTouchCnt'),
+        Text('$stopTouchCnt'),
+      ],
+    );
     return ListView.builder(
       itemCount: logs.length,
       itemBuilder: (context, index) {
         final log = logs.elementAt(index);
-        return Text(log);
+        return Row(
+          children: [
+            Text(log),
+          ],
+        );
       },
     );
   }
