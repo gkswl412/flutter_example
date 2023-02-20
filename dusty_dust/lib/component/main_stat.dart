@@ -7,14 +7,17 @@ class MainStat extends StatelessWidget {
   final String imgPath;
   // 오염 정도
   final String level;
-  //오염 수치
+  // 오염 수치
   final String stat;
+  // 너비
+  final double width;
 
   const MainStat({
     required this.category,
     required this.imgPath,
     required this.level,
     required this.stat,
+    required this.width,
     Key? key,
   }) : super(key: key);
 
@@ -23,28 +26,32 @@ class MainStat extends StatelessWidget {
     final ts = TextStyle(
       color: Colors.black,
     );
-    return Column(
-      children: [
-        Text(
-          category,
-          style: ts,
-        ),
-        const SizedBox(height: 4.0,),
-        Image.asset(
-          imgPath,
-          width: 50.0,
-        ),
-        const SizedBox(height: 4.0,),
-        Text(
-          level,
-          style: ts,
-        ),
-        const SizedBox(height: 4.0,),
-        Text(
-          stat,
-          style: ts,
-        ),
-      ],
+    return SizedBox(
+      width: width,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            category,
+            style: ts,
+          ),
+          const SizedBox(height: 4.0,),
+          Image.asset(
+            imgPath,
+            width: 50.0,
+          ),
+          const SizedBox(height: 4.0,),
+          Text(
+            level,
+            style: ts,
+          ),
+          const SizedBox(height: 4.0,),
+          Text(
+            stat,
+            style: ts,
+          ),
+        ],
+      ),
     );
   }
 }
