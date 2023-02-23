@@ -113,7 +113,7 @@ final statusLevel = [
     primaryColor: Color(0xFF00BCD4),
     darkColor: Color(0xFF008BA3),
     lightColor: Color(0xFF62EFFF),
-    detailFontColor: Colors.black,
+    detailFontColor: Colors.white,
     imagePath: 'asset/img/ok.png',
     comment: '공기가 좋은 날이예요!',
     minFineDust: 31,

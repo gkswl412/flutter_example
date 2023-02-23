@@ -7,16 +7,19 @@ import 'package:dusty_dust/model/status_model.dart';
 import 'package:dusty_dust/utils/data_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../model/stat_and_status_model.dart';
 
 class CategoryCard extends StatelessWidget {
   final String region;
-  final List<StatAndStatusModel> models;
+  final Color darkColor;
+  final Color lightColor;
 
   const CategoryCard({
+    required this.darkColor,
+    required this.lightColor,
     required this.region,
-    required this.models,
     Key? key,
   }) : super(key: key);
 
@@ -25,25 +28,42 @@ class CategoryCard extends StatelessWidget {
     return SizedBox(
       height: 160,
       child: MainCard(
+        backgroundColor: lightColor,
         child: LayoutBuilder(builder: (context, constraint) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              CardTitle(title: '종류별 통계'),
+              CardTitle(
+                title: '종류별 통계',
+                backgroundColor: darkColor,
+              ),
               Expanded(
                 child: ListView(
                     scrollDirection: Axis.horizontal,
                     physics: PageScrollPhysics(),
-                    children: models
+                    children: ItemCode.values
                         .map(
-                          (model) => MainStat(
-                            category: DataUtils.getItemCodeKrString(
-                              itemCode: model.itemCode,
-                            ),
-                            imgPath: model.status.imagePath,
-                            level: model.status.label,
-                            stat: '${model.stat.getLevelFromRegion(region)} ${DataUtils.getUnitFromItemCode(itemCode: model.itemCode)}',
-                            width: constraint.maxWidth / 3,
+                          (ItemCode itemCode) => ValueListenableBuilder<Box>(
+                            valueListenable:
+                                Hive.box<StatModel>(itemCode.name).listenable(),
+                            builder: (context, box, widget) {
+                              final stat = (box.values.last as StatModel);
+                              final status = DataUtils.getStatusFromItemCodeAndValue(
+                                value: stat.getLevelFromRegion(region),
+                                itemCode: itemCode,
+                              );
+
+                              return MainStat(
+                                category: DataUtils.getItemCodeKrString(
+                                  itemCode: itemCode,
+                                ),
+                                imgPath: status.imagePath,
+                                level: status.label,
+                                stat:
+                                    '${stat.getLevelFromRegion(region)} ${DataUtils.getUnitFromItemCode(itemCode: itemCode)}',
+                                width: constraint.maxWidth / 3,
+                              );
+                            },
                           ),
                         )
                         .toList()

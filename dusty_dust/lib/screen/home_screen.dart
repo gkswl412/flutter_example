@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:dusty_dust/component/card_title.dart';
-import 'package:dusty_dust/component/category_card.dart';
-import 'package:dusty_dust/component/hourly_card.dart';
+import 'package:dusty_dust/container/category_card.dart';
+import 'package:dusty_dust/container/hourly_card.dart';
 import 'package:dusty_dust/component/main_app_bar.dart';
 import 'package:dusty_dust/component/main_card.dart';
 import 'package:dusty_dust/component/main_drawer.dart';
@@ -15,6 +15,7 @@ import 'package:dusty_dust/model/status_model.dart';
 import 'package:dusty_dust/repository/stat_repository.dart';
 import 'package:dusty_dust/utils/data_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../const/regions.dart';
 
@@ -27,125 +28,187 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String region = regions[0];
+  bool isExpanded = true;
+  ScrollController scrollController = ScrollController();
 
-  Future<Map<ItemCode, List<StatModel>>> fetchData() async {
-    Map<ItemCode, List<StatModel>> stats = {};
+  @override
+  initState() {
+    super.initState();
 
-    List<Future> futures = [];
+    scrollController.addListener(scrollListener);
+    fetchData();
+  }
 
-    for (ItemCode itemCode in ItemCode.values) {
-      futures.add(
-        StatRepository.fetchData(
-          itemCode: itemCode,
+  @override
+  dispose() {
+    scrollController.removeListener(scrollListener);
+    scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> fetchData() async {
+    //Map<ItemCode, List<StatModel>> stats = {};
+    try {
+      final now = DateTime.now();
+      final fetchTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        now.hour,
+      );
+
+      final box = Hive.box<StatModel>(ItemCode.PM10.name);
+
+      // .last error fix
+      if (box.values.isNotEmpty && (box.values.last as StatModel).dataTime.isAtSameMomentAs(fetchTime)) {
+        print('이미 최신 데이터가 있습니다.');
+        return;
+      }
+
+      List<Future> futures = [];
+
+      for (ItemCode itemCode in ItemCode.values) {
+        futures.add(
+          StatRepository.fetchData(
+            itemCode: itemCode,
+          ),
+        );
+      }
+
+      final results = await Future.wait(futures);
+
+      print('새로운 데이터 가져오기 성공');
+
+      // Hive에 데이터 넣기
+      for (int i = 0; i < results.length; i++) {
+        // ItemCode
+        final key = ItemCode.values[i];
+        // List<StatModel>
+        final value = results[i];
+
+        final box = Hive.box<StatModel>(key.name);
+
+        for (StatModel stat in value) {
+          box.put(stat.dataTime.toString(), stat);
+        }
+
+        final allKeys = box.keys.toList();
+
+        if (allKeys.length > 24) {
+          // start - 시작 인덱스
+          // end - 끝 인덱스
+          // ['red', 'orange', 'yellow', 'green', 'blue']
+          // .sublist(1,3)
+          final deleteKeys = allKeys.sublist(0, allKeys.length - 24);
+
+          box.deleteAll(deleteKeys);
+        }
+      }
+    } on DioError catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('인터넷 연결이 원활하지 않습니다.'),
         ),
       );
     }
+  }
 
-    final results = await Future.wait(futures);
+  scrollListener() {
+    bool isExpanded = scrollController.offset < 500 - kToolbarHeight;
 
-    for (int i = 0; i < results.length; i++) {
-      final key = ItemCode.values[i];
-      final value = results[i];
-
-      stats.addAll({
-        key: value,
+    if (isExpanded != this.isExpanded) {
+      setState(() {
+        this.isExpanded = isExpanded;
       });
     }
-
-    return stats;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: primaryColor,
-      drawer: MainDrawer(
-        selectedRegion: region,
-        onRegionTap: (String region) {
-          setState(() {
-            this.region = region;
-          });
-          Navigator.of(context).pop();
-        },
-      ),
-      body: FutureBuilder<Map<ItemCode, List<StatModel>>>(
-          future: fetchData(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(
-                child: Text('에러가 있습니다.'),
-              );
-            }
+    return ValueListenableBuilder<Box>(
+      valueListenable: Hive.box<StatModel>(ItemCode.PM10.name).listenable(),
+      builder: (context, box, widget) {
+        if(box.values.isEmpty) {
+          return Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        // PM10 (미세먼지)
+        // box.value.toList().
 
-            // 로딩상태
-            // 로딩상태를 connection state로 처리하면 안됨 : 로딩 인디케이터가 게속 보이는 현상 발생
-            if (!snapshot.hasData) {
-              return Center(
-                child: CircularProgressIndicator(),
-              );
-            }
+        final recentStat = (box.values.toList().last as StatModel);
+        print(box.keys);
 
-            Map<ItemCode, List<StatModel>> stats = snapshot.data!;
-            StatModel pm10RecentStat = stats[ItemCode.PM10]![0];
+        final status = DataUtils.getStatusFromItemCodeAndValue(
+          itemCode: ItemCode.PM10,
+          value: recentStat.getLevelFromRegion(region),
+        );
 
-            final status = DataUtils.getStatusFromItemCodeAndValue(
-              itemCode: ItemCode.PM10,
-              value: pm10RecentStat.seoul,
-            );
-
-            final models = stats.keys.map((key) {
-              final value = stats[key]!;
-              final stat = value[0];
-              final status = DataUtils.getStatusFromItemCodeAndValue(
-                value: stat.getLevelFromRegion(region),
-                itemCode: key,
-              );
-              return StatAndStatusModel(
-                itemCode: key,
-                status: status,
-                stat: value[0],
-              );
-            }).toList();
-
-            /*Map<ItemCode, StatusModel> statusPerItemCode={};
-
-            for (var itemCode in ItemCode.values) {
-              StatusModel statusModel = DataUtils.getStatusFromItemCodeAndValue(
-                value: stats[itemCode]![0].seoul,
-                itemCode: itemCode,
-              );
-
-              statusModel.value = stats[itemCode]![0].seoul;
-              statusPerItemCode[itemCode] = statusModel;
-            }
-
-            print(statusPerItemCode.toString());*/
-
-            print(status.toString());
-            print(pm10RecentStat.seoul);
-
-            return CustomScrollView(
-              slivers: [
-                MainAppBar(
-                  region: region,
-                  stat: pm10RecentStat,
-                  status: status,
-                ),
-                SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      CategoryCard(region: region, models: models),
-                      const SizedBox(
-                        height: 16.0,
-                      ),
-                      HourlyCard(),
-                    ],
+        return Scaffold(
+          drawer: MainDrawer(
+            darkColor: status.darkColor,
+            lightColor: status.lightColor,
+            selectedRegion: region,
+            onRegionTap: (String region) {
+              setState(() {
+                this.region = region;
+              });
+              Navigator.of(context).pop();
+            },
+          ),
+          body: Container(
+            color: status.primaryColor,
+            child: RefreshIndicator(
+              onRefresh: () async {
+                fetchData();
+              },
+              child: CustomScrollView(
+                controller: scrollController,
+                slivers: [
+                  MainAppBar(
+                    region: region,
+                    stat: recentStat,
+                    status: status,
+                    dateTime: recentStat.dataTime,
+                    isExpanded: isExpanded,
                   ),
-                )
-              ],
-            );
-          }),
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        CategoryCard(
+                          region: region,
+                          lightColor: status.lightColor,
+                          darkColor: status.darkColor,
+                        ),
+                        const SizedBox(
+                          height: 16.0,
+                        ),
+                        ...ItemCode.values.map((itemCode) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: HourlyCard(
+                              lightColor: status.lightColor,
+                              darkColor: status.darkColor,
+                              region: region,
+                              itemCode: itemCode,
+                            ),
+                          );
+                        }).toList(),
+                        const SizedBox(
+                          height: 16.0,
+                        ),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
