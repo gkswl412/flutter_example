@@ -13,14 +13,8 @@ class FamilyModifierScreen extends ConsumerWidget {
     return DefaultLayout(
       title: 'FamilyModifierScreen',
       body: Center(
-        child: state.when(
-          data: (data) => Text(
-            data.toString(),
-          ),
-          error: (err, stack) => Text(
-            err.toString(),
-          ),
-          loading: () => CircularProgressIndicator(),
+        child: Text(
+          state.toString()
         ),
       ),
     );
