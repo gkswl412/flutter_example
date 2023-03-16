@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart' hide Headers;
 import 'package:flutter/cupertino.dart';
-import 'package:hamah_cs/common/response_model.dart';
+import 'package:hamah_cs/common/model/response_model.dart';
 import 'package:hamah_cs/worker/model/worker_model.dart';
 import 'package:retrofit/http.dart';
 
